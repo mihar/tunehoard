@@ -2,9 +2,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'Dockerfile'
-      - '.github/workflows/**'
 
 jobs:
   build:
