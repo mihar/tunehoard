@@ -12,6 +12,6 @@ export const config = {
   port: process.env.PORT ?? "3000",
   server: {
     protocol: process.env.SERVER_PROTOCOL ?? "http",
-    host: process.env.SERVER_HOST ?? "localhost",
+    host: process.env.SERVER_HOST ?? "localhost:3000",
   },
 };

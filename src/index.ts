@@ -17,9 +17,7 @@ const BOT_TOKEN = config.botToken;
 const SERVER_PORT = config.port;
 const SERVER_PROTOCOL = config.server.protocol;
 const SERVER_HOST = config.server.host;
-const BASE_SERVER_URL = `${SERVER_PROTOCOL}://${SERVER_HOST}${
-  SERVER_PORT ? `:${SERVER_PORT}` : ""
-}`;
+const BASE_SERVER_URL = `${SERVER_PROTOCOL}://${SERVER_HOST}`;
 const YOUTUBE_API_KEY = config.youtubeApiKey;
 const SPOTIFY_CLIENT_ID = config.spotify.clientId;
 const SPOTIFY_CLIENT_SECRET = config.spotify.clientSecret;
