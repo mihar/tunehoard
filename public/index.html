@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Spotify Playlist Picker</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #fafafa;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      button {
+        margin-right: 10px;
+        margin-top: 10px;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        margin: 5px 0;
+      }
+      select {
+        margin-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- React + ReactDOM from CDN (versions pinned for example) -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <!-- Babel Standalone to transpile JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      function App() {
+        // Initialize state from localStorage
+        const [telegramUserId, setTelegramUserId] = useState(() => {
+          return localStorage.getItem("telegramUserId") || "";
+        });
+        const [connected, setConnected] = useState(() => {
+          return localStorage.getItem("connected") === "true";
+        });
+        const [playlists, setPlaylists] = useState([]);
+        const [selectedPlaylist, setSelectedPlaylist] = useState(() => {
+          return localStorage.getItem("selectedPlaylist") || "";
+        });
+
+        // Save telegramUserId to localStorage whenever it changes
+        useEffect(() => {
+          if (telegramUserId) {
+            localStorage.setItem("telegramUserId", telegramUserId);
+          }
+        }, [telegramUserId]);
+
+        // Save connected state to localStorage whenever it changes
+        useEffect(() => {
+          localStorage.setItem("connected", connected.toString());
+        }, [connected]);
+
+        // Save selectedPlaylist to localStorage whenever it changes
+        useEffect(() => {
+          if (selectedPlaylist) {
+            localStorage.setItem("selectedPlaylist", selectedPlaylist);
+          }
+        }, [selectedPlaylist]);
+
+        // If the URL has "?connected=1", user just completed OAuth
+        useEffect(() => {
+          if (window.location.search.includes("connected=1")) {
+            setConnected(true);
+            // Clean up URL
+            window.history.replaceState({}, document.title, "/");
+          }
+        }, []);
+
+        // On mount, verify connection if we have a saved telegramUserId
+        useEffect(() => {
+          const verifyConnection = async () => {
+            if (telegramUserId && connected) {
+              try {
+                const res = await fetch(
+                  `/playlists?telegramUserId=${telegramUserId}`
+                );
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.items) {
+                    setPlaylists(data.items);
+                  }
+                } else {
+                  // Connection is no longer valid
+                  setConnected(false);
+                  setSelectedPlaylist("");
+                }
+              } catch (err) {
+                console.error("Error verifying connection:", err);
+                setConnected(false);
+              }
+            }
+          };
+          verifyConnection();
+        }, []);
+
+        // Connect to Spotify
+        const handleConnectSpotify = () => {
+          if (!telegramUserId) {
+            alert("Please enter your Telegram user ID.");
+            return;
+          }
+          window.location.href = `/auth/login?telegramUserId=${telegramUserId}`;
+        };
+
+        // Fetch user playlists
+        const handleFetchPlaylists = async () => {
+          if (!telegramUserId) {
+            alert("Please enter your Telegram user ID.");
+            return;
+          }
+          try {
+            const res = await fetch(
+              `/playlists?telegramUserId=${telegramUserId}`
+            );
+            if (!res.ok) {
+              alert("Failed to fetch playlists, or not authenticated.");
+              return;
+            }
+            const data = await res.json();
+            if (data.items) {
+              setPlaylists(data.items);
+            } else {
+              setPlaylists([]);
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        };
+
+        // Create a new playlist
+        const handleCreatePlaylist = async () => {
+          if (!telegramUserId) {
+            alert("Please enter your Telegram user ID.");
+            return;
+          }
+          try {
+            const res = await fetch(
+              `/create_playlist?telegramUserId=${telegramUserId}`,
+              {
+                method: "POST",
+              }
+            );
+            if (!res.ok) {
+              alert("Error creating playlist.");
+              return;
+            }
+            const data = await res.json();
+            alert(`Created playlist: ${data.name} (ID: ${data.id})`);
+          } catch (err) {
+            console.error(err);
+          }
+        };
+
+        // Select playlist
+        const handleSelectPlaylist = async (e) => {
+          const plId = e.target.value;
+          setSelectedPlaylist(plId);
+
+          // Tell the server which playlist the user has chosen
+          if (plId && telegramUserId) {
+            try {
+              const res = await fetch(`/set_playlist`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  telegramUserId: Number(telegramUserId),
+                  playlistId: plId,
+                }),
+              });
+              if (!res.ok) {
+                alert("Error setting playlist. Check logs.");
+                return;
+              }
+              const data = await res.json();
+              console.log(data.message);
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        };
+
+        return (
+          <div className="container">
+            <h1>Spotify Playlist Picker (React)</h1>
+            <p>Enter your Telegram User ID:</p>
+            <input
+              type="text"
+              placeholder="123456789"
+              value={telegramUserId}
+              onChange={(e) => setTelegramUserId(e.target.value)}
+              style={{ width: "300px", marginBottom: "10px" }}
+            />
+
+            <div>
+              <button onClick={handleConnectSpotify}>Connect to Spotify</button>
+              {connected && (
+                <span style={{ marginLeft: "10px" }}>Connected!</span>
+              )}
+            </div>
+
+            <div>
+              <button onClick={handleFetchPlaylists}>Get My Playlists</button>
+              <button onClick={handleCreatePlaylist}>
+                Create New Playlist
+              </button>
+            </div>
+
+            <div style={{ marginTop: "10px" }}>
+              <label htmlFor="playlistSelect">Select a playlist:</label>
+              <select
+                id="playlistSelect"
+                onChange={handleSelectPlaylist}
+                value={selectedPlaylist}
+              >
+                <option value="">-- Choose --</option>
+                {playlists.map((pl) => (
+                  <option key={pl.id} value={pl.id}>
+                    {pl.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {playlists.length > 0 && (
+              <ul style={{ marginTop: "20px" }}>
+                {playlists.map((pl) => (
+                  <li key={pl.id}>
+                    {pl.name} - <small>{pl.id}</small>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.render(<App />, document.getElementById("root"));
+    </script>
+  </body>
+</html>
