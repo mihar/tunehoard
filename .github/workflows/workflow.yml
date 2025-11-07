@@ -20,5 +20,9 @@ jobs:
         run: docker build -t ${{ secrets.REGISTRY_NAME }}/tunehoard:$(echo $GITHUB_SHA | head -c7) .
       - name: Log in to DigitalOcean Container Registry with short-lived credentials
         run: doctl registry login --expiry-seconds 1200
+      - name: Tag image as latest
+        run: docker tag ${{ secrets.REGISTRY_NAME }}/tunehoard:$(echo $GITHUB_SHA | head -c7) ${{ secrets.REGISTRY_NAME }}/tunehoard:latest
       - name: Push image to DigitalOcean Container Registry
         run: docker push ${{ secrets.REGISTRY_NAME }}/tunehoard:$(echo $GITHUB_SHA | head -c7)
+      - name: Push latest tag to DigitalOcean Container Registry
+        run: docker push ${{ secrets.REGISTRY_NAME }}/tunehoard:latest
