@@ -8,9 +8,10 @@ export const config = {
   spotify: {
     clientId: process.env.SPOTIFY_CLIENT_ID ?? "",
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET ?? "",
-    redirectUri:
-      process.env.SPOTIFY_REDIRECT_URI ??
-      "https://84f9ce2044aa.ngrok-free.app/auth/callback",
   },
   port: process.env.PORT ?? "3000",
+  server: {
+    protocol: process.env.SERVER_PROTOCOL ?? "http",
+    host: process.env.SERVER_HOST ?? "localhost",
+  },
 };

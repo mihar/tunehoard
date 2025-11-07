@@ -14,11 +14,16 @@ import Database from "./Database";
 import { config } from "./config";
 
 const BOT_TOKEN = config.botToken;
+const SERVER_PORT = config.port;
+const SERVER_PROTOCOL = config.server.protocol;
+const SERVER_HOST = config.server.host;
+const BASE_SERVER_URL = `${SERVER_PROTOCOL}://${SERVER_HOST}${
+  SERVER_PORT ? `:${SERVER_PORT}` : ""
+}`;
 const YOUTUBE_API_KEY = config.youtubeApiKey;
 const SPOTIFY_CLIENT_ID = config.spotify.clientId;
 const SPOTIFY_CLIENT_SECRET = config.spotify.clientSecret;
-const SPOTIFY_REDIRECT_URI = config.spotify.redirectUri;
-const PORT = config.port;
+const SPOTIFY_REDIRECT_URI = `${BASE_SERVER_URL}/auth/callback`;
 
 export interface UserData {
   telegramUserId: number;
@@ -266,9 +271,9 @@ app.post("/set_playlist", async (req: Request, res: Response) => {
 /**
  * Start the Express server
  */
-app.listen(PORT, () => {
+app.listen(SERVER_PORT, () => {
   console.log(
-    `Express server listening on port ${PORT}, database has ${
+    `Express server listening on port ${SERVER_PORT}, database has ${
       database.findAll().length
     } users`
   );
@@ -299,7 +304,7 @@ bot.command("help", async (ctx: Context) => {
 // /login
 bot.command("login", async (ctx: Context) => {
   if (!ctx.from) return;
-  const authUrl = `http://localhost:${PORT}/auth/login?telegramUserId=${ctx.from.id}`;
+  const authUrl = `${BASE_SERVER_URL}/auth/login?telegramUserId=${ctx.from.id}`;
   await ctx.reply(`Click here to connect to Spotify:\n${authUrl}`);
 });
 
