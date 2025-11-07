@@ -24,7 +24,6 @@ RUN npm ci --omit=dev
 # Bring over the compiled output and static assets
 COPY --from=builder /app/dist ./dist
 COPY public ./public
-COPY data.jsonl ./data.jsonl
 
 # Expose the HTTP port used by the Express server
 EXPOSE 3000
