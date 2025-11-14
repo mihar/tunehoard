@@ -14,14 +14,21 @@ import Database from "./Database";
 import { config } from "./config";
 
 const BOT_TOKEN = config.botToken;
-const SERVER_PORT = config.port;
+const SERVER_PORT = Number(config.port ?? 80);
 const SERVER_PROTOCOL = config.server.protocol;
 const SERVER_HOST = config.server.host;
-const BASE_SERVER_URL = `${SERVER_PROTOCOL}://${SERVER_HOST}`;
+const isDefaultPort =
+  (SERVER_PROTOCOL === "https" && SERVER_PORT === 443) ||
+  (SERVER_PROTOCOL === "http" && SERVER_PORT === 80);
+const BASE_SERVER_URL = isDefaultPort
+  ? `${SERVER_PROTOCOL}://${SERVER_HOST}`
+  : `${SERVER_PROTOCOL}://${SERVER_HOST}:${SERVER_PORT}`;
 const YOUTUBE_API_KEY = config.youtubeApiKey;
 const SPOTIFY_CLIENT_ID = config.spotify.clientId;
 const SPOTIFY_CLIENT_SECRET = config.spotify.clientSecret;
 const SPOTIFY_REDIRECT_URI = `${BASE_SERVER_URL}/auth/callback`;
+const TELEGRAM_MODE = config.telegramMode;
+const WEBHOOK_PATH = `/telegram/${config.botWebhookSecretPath}`;
 
 export interface UserData {
   telegramUserId: number;
@@ -53,6 +60,10 @@ app.use(express.json());
 // Serve static files (including index.html).
 const staticRoot = path.resolve(__dirname, "../public");
 app.use(express.static(staticRoot));
+
+if (TELEGRAM_MODE === "webhook") {
+  app.use(WEBHOOK_PATH, bot.webhookCallback(WEBHOOK_PATH));
+}
 
 /**
  * Generate the Spotify OAuth login link, with 'state' = Telegram user ID
@@ -276,13 +287,18 @@ app.post("/set_playlist", async (req: Request, res: Response) => {
 /**
  * Start the Express server
  */
-app.listen(SERVER_PORT, () => {
-  console.log(
-    `Express server listening on port ${SERVER_PORT}, database has ${
-      database.findAll().length
-    } users`
-  );
-});
+async function startHttpServer(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    app.listen(SERVER_PORT, () => {
+      console.log(
+        `Express server listening on port ${SERVER_PORT}, database has ${
+          database.findAll().length
+        } users`
+      );
+      resolve();
+    });
+  });
+}
 
 /* --------------------------------------------------
    TELEGRAM BOT COMMANDS
@@ -371,11 +387,37 @@ bot.catch((err) => {
   console.error("Telegram bot error:", err);
 });
 
-// Start the bot
-bot
-  .launch()
-  .then(() => console.log("Telegram bot started..."))
-  .catch(console.error);
+async function startBot(): Promise<void> {
+  if (TELEGRAM_MODE === "webhook") {
+    const webhookUrl = `${BASE_SERVER_URL}${WEBHOOK_PATH}`;
+    await bot.telegram.setWebhook(webhookUrl, {
+      drop_pending_updates: true,
+    });
+    console.log(`Telegram bot listening via webhook at ${webhookUrl}`);
+    return;
+  }
+
+  await bot.telegram.deleteWebhook({
+    drop_pending_updates: true,
+  });
+
+  await bot.launch({
+    dropPendingUpdates: true,
+  });
+  console.log("Telegram bot started via long polling...");
+}
+
+async function bootstrap() {
+  try {
+    await startHttpServer();
+    await startBot();
+  } catch (error) {
+    console.error("Failed to bootstrap application:", error);
+    process.exit(1);
+  }
+}
+
+bootstrap();
 
 // Graceful stop
 process.once("SIGINT", () => bot.stop("SIGINT"));

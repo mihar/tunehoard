@@ -38,10 +38,12 @@ env:
     - YOUTUBE_API_KEY
     - SPOTIFY_CLIENT_ID
     - SPOTIFY_CLIENT_SECRET
+    - BOT_WEBHOOK_SECRET_PATH
   clear:
     PORT: 80
     SERVER_PROTOCOL: https
     SERVER_HOST: tunehoard.com
+    TELEGRAM_MODE: webhook
 
 # Use a persistent storage volume.
 #
