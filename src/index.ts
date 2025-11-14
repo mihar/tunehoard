@@ -17,12 +17,10 @@ const BOT_TOKEN = config.botToken;
 const SERVER_PORT = Number(config.port ?? 80);
 const SERVER_PROTOCOL = config.server.protocol;
 const SERVER_HOST = config.server.host;
-const isDefaultPort =
-  (SERVER_PROTOCOL === "https" && SERVER_PORT === 443) ||
-  (SERVER_PROTOCOL === "http" && SERVER_PORT === 80);
-const BASE_SERVER_URL = isDefaultPort
-  ? `${SERVER_PROTOCOL}://${SERVER_HOST}`
-  : `${SERVER_PROTOCOL}://${SERVER_HOST}:${SERVER_PORT}`;
+const BASE_SERVER_URL =
+  SERVER_PORT === 80
+    ? `${SERVER_PROTOCOL}://${SERVER_HOST}`
+    : `${SERVER_PROTOCOL}://${SERVER_HOST}:${SERVER_PORT}`;
 const YOUTUBE_API_KEY = config.youtubeApiKey;
 const SPOTIFY_CLIENT_ID = config.spotify.clientId;
 const SPOTIFY_CLIENT_SECRET = config.spotify.clientSecret;
