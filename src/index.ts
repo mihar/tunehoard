@@ -76,6 +76,13 @@ function getSpotifyAuthLink(telegramUserId: number): string {
 }
 
 /**
+ * Kamal health check
+ */
+app.get("/up", (req: Request, res: Response) => {
+  res.send("OK");
+});
+
+/**
  * /auth/login
  * Expects telegramUserId as a query param
  */
