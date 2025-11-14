@@ -9,7 +9,7 @@ export class Database<T extends { telegramUserId: number }> {
   constructor(filePath?: string) {
     this.filePath = filePath
       ? path.resolve(filePath)
-      : path.resolve(process.cwd(), "data.jsonl");
+      : path.resolve(process.cwd(), "storage", "data.jsonl");
 
     this.loadFromDisk();
   }

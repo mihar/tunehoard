@@ -46,4 +46,4 @@ env:
 # Use a persistent storage volume.
 #
 volumes:
-  - "app_storage:/app/storage"
+  - "tunehoard_storage:/app/storage"
