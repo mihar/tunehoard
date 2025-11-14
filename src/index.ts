@@ -60,7 +60,7 @@ const staticRoot = path.resolve(__dirname, "../public");
 app.use(express.static(staticRoot));
 
 if (TELEGRAM_MODE === "webhook") {
-  app.use(WEBHOOK_PATH, bot.webhookCallback(WEBHOOK_PATH));
+  app.use(bot.webhookCallback(WEBHOOK_PATH));
 }
 
 /**
