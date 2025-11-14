@@ -26,7 +26,7 @@ COPY --from=builder /app/dist ./dist
 COPY public ./public
 
 # Expose the HTTP port used by the Express server
-EXPOSE 3000
+EXPOSE 80
 
 # Run the compiled server
 CMD ["node", "dist/index.js"]

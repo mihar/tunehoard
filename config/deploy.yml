@@ -39,7 +39,7 @@ env:
     - SPOTIFY_CLIENT_ID
     - SPOTIFY_CLIENT_SECRET
   clear:
-    PORT: 3000
+    PORT: 80
     SERVER_PROTOCOL: https
     SERVER_HOST: tunehoard.com
 
