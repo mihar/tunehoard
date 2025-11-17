@@ -17,10 +17,7 @@ const BOT_TOKEN = config.botToken;
 const SERVER_PORT = Number(config.port ?? 80);
 const SERVER_PROTOCOL = config.server.protocol;
 const SERVER_HOST = config.server.host;
-const BASE_SERVER_URL =
-  SERVER_PORT === 80
-    ? `${SERVER_PROTOCOL}://${SERVER_HOST}`
-    : `${SERVER_PROTOCOL}://${SERVER_HOST}:${SERVER_PORT}`;
+const BASE_SERVER_URL = `${SERVER_PROTOCOL}://${SERVER_HOST}`;
 const YOUTUBE_API_KEY = config.youtubeApiKey;
 const SPOTIFY_CLIENT_ID = config.spotify.clientId;
 const SPOTIFY_CLIENT_SECRET = config.spotify.clientSecret;
@@ -60,6 +57,7 @@ const staticRoot = path.resolve(__dirname, "../public");
 app.use(express.static(staticRoot));
 
 if (TELEGRAM_MODE === "webhook") {
+  console.log(`Telegram bot listening via webhook at ${WEBHOOK_PATH}`);
   app.use(bot.webhookCallback(WEBHOOK_PATH));
 }
 
