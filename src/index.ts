@@ -337,6 +337,11 @@ bot.on(message("text"), async (ctx) => {
   if (!ctx.from) return;
   const text = ctx.message.text;
 
+  // If no https in the string, skip completely.
+  if (!text.includes("https://")) {
+    return;
+  }
+
   const resolvedService = MusicService.resolve(text);
   if (!resolvedService) {
     console.warn("No service found for URL", text);
@@ -348,7 +353,7 @@ bot.on(message("text"), async (ctx) => {
   // Get the track information.
   const trackInfo = await service.getTrack(text);
   if (!trackInfo) {
-    await ctx.reply(`Couldn't parse "Artist - Song"`);
+    console.warn("No track info found for URL", text);
     return;
   }
   console.log(trackInfo);
