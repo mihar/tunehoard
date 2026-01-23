@@ -826,6 +826,11 @@ bot.on(message("text"), async (ctx) => {
   if (!ctx.chat) return;
   const text = ctx.message.text;
 
+  // If no https in the string, skip completely.
+  if (!text.includes("https://")) {
+    return;
+  }
+
   log("Incoming message", { text, chatId: ctx.chat.id });
 
   // Find which service can handle this URL
