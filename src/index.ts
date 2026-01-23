@@ -566,8 +566,22 @@ app.post("/set_playlist", async (req: Request, res: Response) => {
     return;
   }
 
+  // Fetch playlist to get current track count
+  let trackCount = 0;
+  try {
+    const playlistRes = await fetch(
+      `https://api.spotify.com/v1/playlists/${playlistId}?fields=tracks.total`,
+      { headers: { Authorization: `Bearer ${connection.accessToken}` } }
+    );
+    const playlistData = await playlistRes.json();
+    trackCount = playlistData.tracks?.total ?? 0;
+  } catch (err) {
+    console.error("Error fetching playlist track count:", err);
+  }
+
   connection.playlistId = playlistId;
   connection.playlistUrl = playlistUrl;
+  connection.tracksAdded = trackCount;
   setConnection(integration, connection);
   chatDatabase.update(session.chatId, integration);
 
