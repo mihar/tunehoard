@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-export class Database<T extends { telegramUserId: number }> {
+export class Database<T extends { id: number }> {
   private readonly filePath: string;
   private items: T[] = [];
   private lookup: Map<number, T> = new Map();
@@ -18,15 +18,15 @@ export class Database<T extends { telegramUserId: number }> {
     return this.items.map((record) => ({ ...record }));
   }
 
-  public findById(telegramUserId: number): T | undefined {
-    const record = this.lookup.get(telegramUserId);
+  public findById(id: number): T | undefined {
+    const record = this.lookup.get(id);
     return record ? { ...record } : undefined;
   }
 
   public insert(record: T): T {
     const stored = { ...record };
     const existingIndex = this.items.findIndex(
-      (item) => item.telegramUserId === stored.telegramUserId
+      (item) => item.id === stored.id
     );
 
     if (existingIndex >= 0) {
@@ -35,40 +35,40 @@ export class Database<T extends { telegramUserId: number }> {
       this.items.push(stored);
     }
 
-    this.lookup.set(stored.telegramUserId, stored);
+    this.lookup.set(stored.id, stored);
     this.persist();
     return { ...stored };
   }
 
   public update(
-    telegramUserId: number,
-    updates: Partial<Omit<T, "telegramUserId">>
+    id: number,
+    updates: Partial<Omit<T, "id">>
   ): T {
-    const existing = this.lookup.get(telegramUserId);
+    const existing = this.lookup.get(id);
     if (!existing) {
-      throw new Error(`Record with telegramUserId=${telegramUserId} not found`);
+      throw new Error(`Record with id=${id} not found`);
     }
 
     const updated = { ...existing, ...updates };
     const index = this.items.findIndex(
-      (record) => record.telegramUserId === telegramUserId
+      (record) => record.id === id
     );
     if (index !== -1) {
       this.items[index] = updated;
     }
-    this.lookup.set(telegramUserId, updated);
+    this.lookup.set(id, updated);
     this.persist();
     return { ...updated };
   }
 
-  public delete(telegramUserId: number): boolean {
-    if (!this.lookup.has(telegramUserId)) {
+  public delete(id: number): boolean {
+    if (!this.lookup.has(id)) {
       return false;
     }
 
-    this.lookup.delete(telegramUserId);
+    this.lookup.delete(id);
     this.items = this.items.filter(
-      (record) => record.telegramUserId !== telegramUserId
+      (record) => record.id !== id
     );
     this.persist();
     return true;
@@ -94,7 +94,7 @@ export class Database<T extends { telegramUserId: number }> {
           const parsed = JSON.parse(trimmed) as T;
           const stored = { ...parsed };
           nextItems.push(stored);
-          nextLookup.set(stored.telegramUserId, stored);
+          nextLookup.set(stored.id, stored);
         } catch (err) {
           console.warn(
             `Skipping invalid JSON in ${this.filePath} at line ${index + 1}:`,

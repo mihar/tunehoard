@@ -1,4 +1,5 @@
-import type { TrackInfo } from "./MusicService";
+import type { TrackInfo, ParsedTrackData } from "./MusicService";
+import { log } from "./logger";
 
 export class TrackTitleNormalizer {
   private static readonly EXTRANEOUS_TAG_REGEX =
@@ -6,6 +7,7 @@ export class TrackTitleNormalizer {
 
   public static parse(title: string): TrackInfo | null {
     if (!title) {
+      log("TrackTitleNormalizer: empty title");
       return null;
     }
 
@@ -15,8 +17,11 @@ export class TrackTitleNormalizer {
       )
     );
 
+    log("TrackTitleNormalizer: normalized", { original: title, normalized: normalizedTitle });
+
     const parts = normalizedTitle.split(/\s*-\s*/);
     if (parts.length < 2) {
+      log("TrackTitleNormalizer: no hyphen separator found", { normalizedTitle, parts });
       return null;
     }
 
@@ -25,11 +30,48 @@ export class TrackTitleNormalizer {
     const artist = TrackTitleNormalizer.normalizeArtistName(artistRaw ?? "");
     const song = TrackTitleNormalizer.normalizeTrackName(songRaw);
 
+    log("TrackTitleNormalizer: extracted", { artistRaw, songRaw, artist, song });
+
     if (!artist || !song) {
+      log("TrackTitleNormalizer: empty artist or song after normalization");
       return null;
     }
 
     return { artist, song };
+  }
+
+  /**
+   * Normalize a title and optionally extract artist/song.
+   * Always returns something (at minimum, the cleaned-up raw title).
+   */
+  public static normalize(title: string, description?: string): ParsedTrackData {
+    if (!title) {
+      return { rawTitle: "" };
+    }
+
+    const normalizedTitle = TrackTitleNormalizer.normalizeWhitespace(
+      TrackTitleNormalizer.extractPrimaryTitleSegment(
+        title.replace(/[–—]/g, "-")
+      )
+    );
+
+    // Try to parse "Artist - Song" format
+    const parsed = TrackTitleNormalizer.parse(title);
+
+    if (parsed) {
+      return {
+        rawTitle: normalizedTitle,
+        rawDescription: description,
+        artist: parsed.artist,
+        song: parsed.song,
+      };
+    }
+
+    // Couldn't parse, just return the cleaned title
+    return {
+      rawTitle: normalizedTitle,
+      rawDescription: description,
+    };
   }
 
   private static normalizeArtistName(name: string): string {

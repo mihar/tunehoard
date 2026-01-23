@@ -2,255 +2,826 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Spotify Playlist Picker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TuneHoard</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-        background-color: #fafafa;
-      }
-      .container {
-        max-width: 600px;
-        margin: 0 auto;
-      }
-      button {
-        margin-right: 10px;
-        margin-top: 10px;
-      }
-      ul {
-        list-style: none;
+      * {
+        margin: 0;
         padding: 0;
+        box-sizing: border-box;
       }
-      li {
-        margin: 5px 0;
+
+      :root {
+        --orange: #E85D04;
+        --orange-dark: #D45003;
+        --cream: #F5E6C8;
+        --dark: #1a1a2e;
       }
+
+      body {
+        font-family: "Courier New", Courier, monospace;
+        background-color: #fff;
+        color: var(--dark);
+        line-height: 1.5;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .logo {
+        width: 80px;
+        height: 80px;
+      }
+
+      .logo-small {
+        width: 50px;
+        height: 50px;
+      }
+
+      .logo-text {
+        font-size: 28px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .tagline {
+        font-size: 14px;
+        margin-bottom: 40px;
+        border-bottom: 2px solid var(--dark);
+        padding-bottom: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: normal;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 10px;
+      }
+
+      h2 {
+        font-size: 16px;
+        font-weight: normal;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid var(--dark);
+        padding-bottom: 5px;
+      }
+
+      .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 15px;
+        border: 2px solid var(--dark);
+      }
+
+      .chat-info {
+        font-size: 14px;
+      }
+
+      .chat-name {
+        font-weight: bold;
+      }
+
+      .chat-type {
+        font-size: 12px;
+        padding: 3px 8px;
+        background: var(--dark);
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      button {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 14px;
+        background: var(--orange);
+        color: #fff;
+        border: 2px solid var(--orange);
+        padding: 10px 20px;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.1s;
+      }
+
+      button:hover {
+        background: var(--orange-dark);
+        border-color: var(--orange-dark);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button.secondary {
+        background: #fff;
+        color: var(--dark);
+        border-color: var(--dark);
+      }
+
+      button.secondary:hover {
+        background: var(--dark);
+        color: #fff;
+      }
+
+      .service-card {
+        border: 2px solid var(--dark);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .service-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .service-name {
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .service-status {
+        font-size: 12px;
+        padding: 5px 10px;
+        border: 1px solid var(--dark);
+      }
+
+      .service-status.connected {
+        background: var(--orange);
+        color: #fff;
+        border-color: var(--orange);
+      }
+
+      .service-status.coming-soon {
+        background: #ccc;
+        color: #666;
+        border-color: #999;
+      }
+
+      .playlist-section {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px dashed var(--dark);
+      }
+
+      .playlist-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
       select {
-        margin-left: 10px;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 14px;
+        padding: 10px;
+        border: 2px solid var(--dark);
+        background: #fff;
+        flex: 1;
+        cursor: pointer;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      select:focus {
+        outline: none;
+        background: #f0f0f0;
+      }
+
+      .loading {
+        padding: 20px;
+        text-align: center;
+        border: 2px dashed var(--dark);
+      }
+
+      .error {
+        padding: 15px;
+        border: 2px solid var(--orange);
+        background: var(--orange);
+        color: #fff;
+        margin-bottom: 20px;
+      }
+
+      .landing-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        text-align: center;
+      }
+
+      .how-it-works {
+        margin-top: 40px;
+        text-align: left;
+        max-width: 500px;
+      }
+
+      .how-it-works ol {
+        margin-left: 20px;
+        margin-top: 15px;
+      }
+
+      .how-it-works li {
+        margin-bottom: 15px;
+        font-size: 14px;
+      }
+
+      .how-it-works code {
+        background: #f0f0f0;
+        padding: 2px 6px;
+        font-size: 13px;
+      }
+
+      .bot-link {
+        display: inline-block;
+        margin-top: 30px;
+        padding: 15px 30px;
+        background: var(--orange);
+        color: #fff;
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 14px;
+      }
+
+      .bot-link:hover {
+        background: var(--orange-dark);
+      }
+
+      .footer {
+        margin-top: 60px;
+        padding-top: 20px;
+        border-top: 2px solid var(--dark);
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .footer a {
+        color: var(--orange);
+      }
+
+      .message {
+        padding: 15px;
+        border: 2px solid var(--dark);
+        margin-bottom: 20px;
+        font-size: 14px;
+      }
+
+      .message.success {
+        background: #e8ffe8;
+      }
+
+      .settings-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        border: 2px solid var(--dark);
+      }
+
+      .setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .setting-label {
+        font-size: 14px;
+      }
+
+      .setting-description {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .toggle {
+        position: relative;
+        width: 50px;
+        height: 26px;
+        cursor: pointer;
+      }
+
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.2s;
+      }
+
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.2s;
+      }
+
+      .toggle input:checked + .toggle-slider {
+        background-color: var(--orange);
+      }
+
+      .toggle input:checked + .toggle-slider:before {
+        transform: translateX(24px);
+      }
+
+      .info-box {
+        background: #f9f9f9;
+        border: 1px solid var(--dark);
+        padding: 15px;
+        margin-top: 20px;
+        font-size: 13px;
+      }
+
+      .info-box p {
+        margin-bottom: 10px;
+      }
+
+      .info-box p:last-child {
+        margin-bottom: 0;
       }
     </style>
   </head>
   <body>
     <div id="root"></div>
 
-    <!-- React + ReactDOM from CDN (versions pinned for example) -->
-    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <!-- Babel Standalone to transpile JSX in the browser -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
+      const { useState, useEffect, createContext, useContext } = React;
 
-      function App() {
-        // Initialize state from localStorage
-        const [telegramUserId, setTelegramUserId] = useState(() => {
-          return localStorage.getItem("telegramUserId") || "";
-        });
-        const [connected, setConnected] = useState(() => {
-          return localStorage.getItem("connected") === "true";
-        });
-        const [playlists, setPlaylists] = useState([]);
-        const [selectedPlaylist, setSelectedPlaylist] = useState(() => {
-          return localStorage.getItem("selectedPlaylist") || "";
-        });
+      // Auth Context
+      const AuthContext = createContext(null);
 
-        // Save telegramUserId to localStorage whenever it changes
-        useEffect(() => {
-          if (telegramUserId) {
-            localStorage.setItem("telegramUserId", telegramUserId);
-          }
-        }, [telegramUserId]);
+      function useAuth() {
+        return useContext(AuthContext);
+      }
 
-        // Save connected state to localStorage whenever it changes
-        useEffect(() => {
-          localStorage.setItem("connected", connected.toString());
-        }, [connected]);
+      function AuthProvider({ children }) {
+        const [chat, setChat] = useState(null);
+        const [loading, setLoading] = useState(true);
 
-        // Save selectedPlaylist to localStorage whenever it changes
-        useEffect(() => {
-          if (selectedPlaylist) {
-            localStorage.setItem("selectedPlaylist", selectedPlaylist);
-          }
-        }, [selectedPlaylist]);
-
-        // If the URL has "?connected=1", user just completed OAuth
-        useEffect(() => {
-          if (window.location.search.includes("connected=1")) {
-            setConnected(true);
-            // Clean up URL
-            window.history.replaceState({}, document.title, "/");
-          }
-        }, []);
-
-        // On mount, verify connection if we have a saved telegramUserId
-        useEffect(() => {
-          const verifyConnection = async () => {
-            if (telegramUserId && connected) {
-              try {
-                const res = await fetch(
-                  `/playlists?telegramUserId=${telegramUserId}`
-                );
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.items) {
-                    setPlaylists(data.items);
-                  }
-                } else {
-                  // Connection is no longer valid
-                  setConnected(false);
-                  setSelectedPlaylist("");
-                }
-              } catch (err) {
-                console.error("Error verifying connection:", err);
-                setConnected(false);
-              }
-            }
-          };
-          verifyConnection();
-        }, []);
-
-        // Connect to Spotify
-        const handleConnectSpotify = () => {
-          if (!telegramUserId) {
-            alert("Please enter your Telegram user ID.");
-            return;
-          }
-          window.location.href = `/auth/login?telegramUserId=${telegramUserId}`;
-        };
-
-        // Fetch user playlists
-        const handleFetchPlaylists = async () => {
-          if (!telegramUserId) {
-            alert("Please enter your Telegram user ID.");
-            return;
-          }
+        const checkAuth = async () => {
           try {
-            const res = await fetch(
-              `/playlists?telegramUserId=${telegramUserId}`
-            );
-            if (!res.ok) {
-              alert("Failed to fetch playlists, or not authenticated.");
-              return;
-            }
-            const data = await res.json();
-            if (data.items) {
-              setPlaylists(data.items);
-            } else {
-              setPlaylists([]);
-            }
-          } catch (err) {
-            console.error(err);
-          }
-        };
-
-        // Create a new playlist
-        const handleCreatePlaylist = async () => {
-          if (!telegramUserId) {
-            alert("Please enter your Telegram user ID.");
-            return;
-          }
-          try {
-            const res = await fetch(
-              `/create_playlist?telegramUserId=${telegramUserId}`,
-              {
-                method: "POST",
-              }
-            );
-            if (!res.ok) {
-              alert("Error creating playlist.");
-              return;
-            }
-            const data = await res.json();
-            alert(`Created playlist: ${data.name} (ID: ${data.id})`);
-          } catch (err) {
-            console.error(err);
-          }
-        };
-
-        // Select playlist
-        const handleSelectPlaylist = async (e) => {
-          const plId = e.target.value;
-          setSelectedPlaylist(plId);
-
-          // Tell the server which playlist the user has chosen
-          if (plId && telegramUserId) {
-            try {
-              const res = await fetch(`/set_playlist`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  telegramUserId: Number(telegramUserId),
-                  playlistId: plId,
-                }),
-              });
-              if (!res.ok) {
-                alert("Error setting playlist. Check logs.");
-                return;
-              }
+            const res = await fetch("/auth/me");
+            if (res.ok) {
               const data = await res.json();
-              console.log(data.message);
-            } catch (err) {
-              console.error(err);
+              setChat(data);
+            } else {
+              setChat(null);
             }
+          } catch (err) {
+            console.error("Auth check failed:", err);
+            setChat(null);
+          } finally {
+            setLoading(false);
           }
+        };
+
+        useEffect(() => {
+          checkAuth();
+        }, []);
+
+        const logout = async () => {
+          try {
+            await fetch("/auth/logout", { method: "POST" });
+            setChat(null);
+          } catch (err) {
+            console.error("Logout failed:", err);
+          }
+        };
+
+        const refreshChat = () => {
+          checkAuth();
         };
 
         return (
+          <AuthContext.Provider value={{ chat, loading, logout, refreshChat }}>
+            {children}
+          </AuthContext.Provider>
+        );
+      }
+
+      // Logo Component
+      function Logo({ small }) {
+        return (
+          <div className="logo-container">
+            <img src="/logo.png" alt="TuneHoard" className={small ? "logo-small" : "logo"} />
+            <span className="logo-text">TuneHoard</span>
+          </div>
+        );
+      }
+
+      // Landing Page - Now shows instructions for using the bot
+      function LandingPage() {
+        const [botUsername, setBotUsername] = useState("tunehoard_bot");
+
+        useEffect(() => {
+          fetch("/config")
+            .then((res) => res.json())
+            .then((data) => setBotUsername(data.botUsername))
+            .catch((err) => console.error("Failed to fetch config:", err));
+        }, []);
+
+        return (
           <div className="container">
-            <h1>Spotify Playlist Picker (React)</h1>
-            <p>Enter your Telegram User ID:</p>
-            <input
-              type="text"
-              placeholder="123456789"
-              value={telegramUserId}
-              onChange={(e) => setTelegramUserId(e.target.value)}
-              style={{ width: "300px", marginBottom: "10px" }}
-            />
+            <div className="landing-center">
+              <Logo />
+              <h1>TuneHoard</h1>
+              <p className="tagline">
+                Share music links in Telegram.<br />
+                Auto-add tracks to your Spotify playlist.
+              </p>
 
-            <div>
-              <button onClick={handleConnectSpotify}>Connect to Spotify</button>
-              {connected && (
-                <span style={{ marginLeft: "10px" }}>Connected!</span>
-              )}
-            </div>
+              <div className="how-it-works">
+                <h2>How It Works</h2>
+                <ol>
+                  <li>
+                    <strong>Add the bot</strong> to your Telegram chat (DM or group)
+                  </li>
+                  <li>
+                    Run <code>/login</code> to get a one-time setup link
+                  </li>
+                  <li>
+                    Click the link to connect your Spotify and select a playlist
+                  </li>
+                  <li>
+                    Share YouTube or Spotify links in the chat - they'll be added automatically!
+                  </li>
+                </ol>
 
-            <div>
-              <button onClick={handleFetchPlaylists}>Get My Playlists</button>
-              <button onClick={handleCreatePlaylist}>
-                Create New Playlist
-              </button>
-            </div>
+                <div className="info-box">
+                  <p><strong>Groups:</strong> Any member can run /login to connect or manage the group's Spotify integration.</p>
+                  <p><strong>Private chats:</strong> Your own personal music hoard!</p>
+                </div>
+              </div>
 
-            <div style={{ marginTop: "10px" }}>
-              <label htmlFor="playlistSelect">Select a playlist:</label>
-              <select
-                id="playlistSelect"
-                onChange={handleSelectPlaylist}
-                value={selectedPlaylist}
+              <a
+                href={`https://t.me/${botUsername}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bot-link"
               >
-                <option value="">-- Choose --</option>
+                Start with @{botUsername}
+              </a>
+            </div>
+            <div className="footer">
+              <p>Built for music hoarders who share links in chat.</p>
+            </div>
+          </div>
+        );
+      }
+
+      // Spotify Config Panel
+      function SpotifyConfig({ onUpdate }) {
+        const [playlists, setPlaylists] = useState([]);
+        const [selectedPlaylist, setSelectedPlaylist] = useState("");
+        const [loading, setLoading] = useState(true);
+        const [creating, setCreating] = useState(false);
+        const [error, setError] = useState(null);
+        const { chat } = useAuth();
+
+        useEffect(() => {
+          fetchPlaylists();
+        }, []);
+
+        useEffect(() => {
+          if (chat?.services?.spotify?.playlistId) {
+            setSelectedPlaylist(chat.services.spotify.playlistId);
+          }
+        }, [chat]);
+
+        const fetchPlaylists = async () => {
+          setLoading(true);
+          setError(null);
+          try {
+            const res = await fetch("/playlists");
+            if (!res.ok) {
+              throw new Error("Failed to fetch playlists");
+            }
+            const data = await res.json();
+            setPlaylists(data.items || []);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        const handleSelectPlaylist = async (e) => {
+          const playlistId = e.target.value;
+          setSelectedPlaylist(playlistId);
+
+          if (playlistId) {
+            try {
+              const res = await fetch("/set_playlist", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playlistId }),
+              });
+              if (!res.ok) {
+                throw new Error("Failed to set playlist");
+              }
+              if (onUpdate) onUpdate();
+            } catch (err) {
+              setError(err.message);
+            }
+          }
+        };
+
+        const handleCreatePlaylist = async () => {
+          setCreating(true);
+          setError(null);
+          try {
+            const res = await fetch("/create_playlist", { method: "POST" });
+            if (!res.ok) {
+              throw new Error("Failed to create playlist");
+            }
+            const newPlaylist = await res.json();
+            await fetchPlaylists();
+            setSelectedPlaylist(newPlaylist.id);
+            await fetch("/set_playlist", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ playlistId: newPlaylist.id }),
+            });
+            if (onUpdate) onUpdate();
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setCreating(false);
+          }
+        };
+
+        if (loading) {
+          return <div className="loading">LOADING PLAYLISTS...</div>;
+        }
+
+        return (
+          <div className="playlist-section">
+            <h2>Target Playlist</h2>
+            {error && <div className="error">{error}</div>}
+            <div className="playlist-controls">
+              <select value={selectedPlaylist} onChange={handleSelectPlaylist}>
+                <option value="">-- SELECT PLAYLIST --</option>
                 {playlists.map((pl) => (
                   <option key={pl.id} value={pl.id}>
                     {pl.name}
                   </option>
                 ))}
               </select>
+              <button onClick={fetchPlaylists} className="secondary" title="Refresh">
+                [R]
+              </button>
             </div>
-
-            {playlists.length > 0 && (
-              <ul style={{ marginTop: "20px" }}>
-                {playlists.map((pl) => (
-                  <li key={pl.id}>
-                    {pl.name} - <small>{pl.id}</small>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <button onClick={handleCreatePlaylist} disabled={creating}>
+              {creating ? "CREATING..." : "+ NEW PLAYLIST"}
+            </button>
           </div>
         );
       }
 
-      ReactDOM.render(<App />, document.getElementById("root"));
+      // Toggle Component
+      function Toggle({ checked, onChange }) {
+        return (
+          <label className="toggle">
+            <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+        );
+      }
+
+      // Settings Section
+      function SettingsSection() {
+        const { chat, refreshChat } = useAuth();
+        const [smartMatching, setSmartMatching] = useState(chat?.smartMatching ?? false);
+        const [saving, setSaving] = useState(false);
+
+        useEffect(() => {
+          if (chat?.smartMatching !== undefined) {
+            setSmartMatching(chat.smartMatching);
+          }
+        }, [chat?.smartMatching]);
+
+        const handleToggle = async (value) => {
+          setSmartMatching(value);
+          setSaving(true);
+          try {
+            const res = await fetch("/settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ smartMatching: value }),
+            });
+            if (res.ok) {
+              refreshChat();
+            }
+          } catch (err) {
+            console.error("Failed to save settings:", err);
+            setSmartMatching(!value); // revert
+          } finally {
+            setSaving(false);
+          }
+        };
+
+        return (
+          <div className="settings-section">
+            <div className="setting-row">
+              <div>
+                <div className="setting-label">Smart Matching</div>
+                <div className="setting-description">
+                  Use AI to identify tracks when regular parsing fails
+                </div>
+              </div>
+              <Toggle checked={smartMatching} onChange={handleToggle} />
+            </div>
+          </div>
+        );
+      }
+
+      // Service Cards
+      function ServiceCards() {
+        const { chat, refreshChat } = useAuth();
+
+        return (
+          <div>
+            {/* Spotify Card */}
+            <div className="service-card">
+              <div className="service-header">
+                <span className="service-name">Spotify</span>
+                <span className={`service-status ${chat?.services?.spotify?.connected ? "connected" : ""}`}>
+                  {chat?.services?.spotify?.connected ? "CONNECTED" : "NOT CONNECTED"}
+                </span>
+              </div>
+              {chat?.services?.spotify?.connected ? (
+                <SpotifyConfig onUpdate={refreshChat} />
+              ) : (
+                <p style={{ fontSize: "14px", color: "#666" }}>
+                  Spotify connection failed or was lost. Run <code>/login</code> in your Telegram chat to reconnect.
+                </p>
+              )}
+            </div>
+
+            {/* YouTube Card - Coming Soon */}
+            <div className="service-card">
+              <div className="service-header">
+                <span className="service-name">YouTube Music</span>
+                <span className="service-status coming-soon">COMING SOON</span>
+              </div>
+              <p style={{ fontSize: "14px", color: "#666" }}>
+                YouTube Music integration is in development.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      // Chat type display helper
+      function getChatTypeLabel(chatType) {
+        switch (chatType) {
+          case "private": return "DM";
+          case "group": return "Group";
+          case "supergroup": return "Group";
+          case "channel": return "Channel";
+          default: return chatType;
+        }
+      }
+
+      // Dashboard
+      function Dashboard() {
+        const { chat, logout } = useAuth();
+        const [message, setMessage] = useState(null);
+        const [botUsername, setBotUsername] = useState("tunehoard_bot");
+
+        useEffect(() => {
+          fetch("/config")
+            .then((res) => res.json())
+            .then((data) => setBotUsername(data.botUsername))
+            .catch((err) => console.error("Failed to fetch config:", err));
+        }, []);
+
+        useEffect(() => {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("connected") === "true") {
+            setMessage("Spotify connected successfully! Now select a playlist below.");
+            window.history.replaceState({}, document.title, "/");
+          }
+        }, []);
+
+        const displayName = chat?.chatTitle || (chat?.chatType === "private" ? "Private Chat" : `Chat ${chat?.chatId}`);
+
+        return (
+          <div className="container">
+            <Logo />
+
+            <div className="chat-header">
+              <div className="chat-info">
+                <span className="chat-name">{displayName}</span>
+                <span className="chat-type" style={{ marginLeft: "10px" }}>
+                  {getChatTypeLabel(chat?.chatType)}
+                </span>
+              </div>
+              <button onClick={logout} className="secondary">
+                EXIT
+              </button>
+            </div>
+
+            {message && (
+              <div className="message success">{message}</div>
+            )}
+
+            <h2>Settings</h2>
+            <SettingsSection />
+
+            <h2>Connected Services</h2>
+            <ServiceCards />
+
+            <div className="info-box">
+              <p>
+                <strong>Ready to hoard!</strong> Share YouTube or Spotify links in your Telegram chat
+                and they'll be added to the selected playlist automatically.
+              </p>
+              <p>
+                Anyone in the chat can run <code>/status</code> to check the connection,
+                or <code>/login</code> to reconnect or change settings.
+              </p>
+            </div>
+
+            <div className="footer">
+              <p>
+                Share links in{" "}
+                <a href="https://t.me/tunehoard_bot" target="_blank" rel="noopener noreferrer">
+                  @{botUsername}
+                </a>{" "}
+                on Telegram.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      // Main App
+      function App() {
+        const { chat, loading } = useAuth();
+
+        if (loading) {
+          return (
+            <div className="container">
+              <div className="landing-center">
+                <div className="loading">LOADING...</div>
+              </div>
+            </div>
+          );
+        }
+
+        return chat ? <Dashboard /> : <LandingPage />;
+      }
+
+      // Root
+      function Root() {
+        return (
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<Root />);
     </script>
   </body>
 </html>
