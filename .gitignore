@@ -33,3 +33,6 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Claude Code local settings (may contain API keys)
+.claude/settings.local.json
