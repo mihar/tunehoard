@@ -548,11 +548,13 @@
           setSelectedPlaylist(playlistId);
 
           if (playlistId) {
+            const playlist = playlists.find((pl) => pl.id === playlistId);
+            const playlistUrl = playlist?.external_urls?.spotify;
             try {
               const res = await fetch("/set_playlist", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playlistId }),
+                body: JSON.stringify({ playlistId, playlistUrl }),
               });
               if (!res.ok) {
                 throw new Error("Failed to set playlist");
@@ -578,7 +580,10 @@
             await fetch("/set_playlist", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ playlistId: newPlaylist.id }),
+              body: JSON.stringify({
+                playlistId: newPlaylist.id,
+                playlistUrl: newPlaylist.external_urls?.spotify,
+              }),
             });
             if (onUpdate) onUpdate();
           } catch (err) {
@@ -690,9 +695,14 @@
               {chat?.services?.spotify?.connected ? (
                 <SpotifyConfig onUpdate={refreshChat} />
               ) : (
-                <p style={{ fontSize: "14px", color: "#666" }}>
-                  Spotify connection failed or was lost. Run <code>/login</code> in your Telegram chat to reconnect.
-                </p>
+                <div>
+                  <p style={{ fontSize: "14px", color: "#666", marginBottom: "15px" }}>
+                    Connect your Spotify account to start saving tracks.
+                  </p>
+                  <a href="/auth/spotify/connect" className="bot-link" style={{ display: "inline-block" }}>
+                    Connect Spotify
+                  </a>
+                </div>
               )}
             </div>
 

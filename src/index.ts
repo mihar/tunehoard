@@ -41,6 +41,7 @@ export interface ServiceConnection {
   accessToken?: string;
   refreshToken?: string;
   playlistId?: string;
+  playlistUrl?: string;
   tracksAdded?: number;
 }
 
@@ -263,7 +264,7 @@ app.get("/config", (req: Request, res: Response) => {
 });
 
 /**
- * /auth/login - Accepts JWT token from bot, sets session, redirects to Spotify
+ * /auth/login - Accepts JWT token from bot, sets session, redirects to dashboard
  */
 app.get("/auth/login", (req: Request, res: Response) => {
   const token = req.query.token as string;
@@ -315,7 +316,20 @@ app.get("/auth/login", (req: Request, res: Response) => {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   });
 
-  // Redirect to Spotify OAuth
+  // Go to dashboard
+  res.redirect("/");
+});
+
+/**
+ * /auth/spotify/connect - Initiates Spotify OAuth flow
+ */
+app.get("/auth/spotify/connect", (req: Request, res: Response) => {
+  const session = verifySessionCookie(req);
+  if (!session) {
+    res.status(401).send("Please use /login in Telegram first.");
+    return;
+  }
+
   res.redirect(getSpotifyAuthLink());
 });
 
@@ -403,11 +417,12 @@ app.get("/auth/me", (req: Request, res: Response) => {
   }
 
   // Build services object from connections
-  const services: Record<string, { connected: boolean; playlistId?: string; tracksAdded?: number }> = {};
+  const services: Record<string, { connected: boolean; playlistId?: string; playlistUrl?: string; tracksAdded?: number }> = {};
   for (const connection of integration.connections) {
     services[connection.service.toLowerCase()] = {
       connected: !!connection.accessToken,
       playlistId: connection.playlistId,
+      playlistUrl: connection.playlistUrl,
       tracksAdded: connection.tracksAdded,
     };
   }
@@ -489,9 +504,9 @@ app.post("/create_playlist", async (req: Request, res: Response) => {
     return;
   }
 
-  const playlistName = session.chatTitle
-    ? `TuneHoard - ${session.chatTitle}`
-    : "TuneHoard Playlist";
+  const chatName = session.chatTitle || "My Chat";
+  const playlistName = `TuneHoard: ${chatName}`;
+  const playlistDescription = `All the music shared in ${chatName}. Managed by TuneHoard bot.`;
 
   try {
     // TODO: Move to service class when supporting multiple services
@@ -510,6 +525,7 @@ app.post("/create_playlist", async (req: Request, res: Response) => {
         },
         body: JSON.stringify({
           name: playlistName,
+          description: playlistDescription,
           public: false,
         }),
       }
@@ -534,7 +550,7 @@ app.post("/set_playlist", async (req: Request, res: Response) => {
     return;
   }
 
-  const { playlistId } = req.body;
+  const { playlistId, playlistUrl } = req.body;
   if (!playlistId) {
     res.status(400).json({ error: "Missing playlistId in body" });
     return;
@@ -551,6 +567,7 @@ app.post("/set_playlist", async (req: Request, res: Response) => {
   }
 
   connection.playlistId = playlistId;
+  connection.playlistUrl = playlistUrl;
   setConnection(integration, connection);
   chatDatabase.update(session.chatId, integration);
 
@@ -732,8 +749,8 @@ bot.command("status", async (ctx: Context) => {
     return;
   }
 
-  let statusMessage = "";
   let totalTracks = 0;
+  let servicesHtml = "";
 
   for (const connection of integration.connections) {
     const serviceName = connection.service.charAt(0).toUpperCase() + connection.service.slice(1).toLowerCase();
@@ -741,21 +758,26 @@ bot.command("status", async (ctx: Context) => {
     totalTracks += tracksAdded;
 
     if (!connection.accessToken) {
-      statusMessage += `${serviceName}: Needs re-authentication\n`;
+      servicesHtml += `\n⚠️ <b>${serviceName}</b> — Needs re-auth`;
     } else {
-      statusMessage += `${serviceName}: Connected\n`;
-      if (connection.playlistId) {
-        statusMessage += `  Playlist: Set\n`;
+      servicesHtml += `\n✓ <b>${serviceName}</b> — Connected`;
+      if (connection.playlistUrl) {
+        servicesHtml += `\n   ${connection.playlistUrl}`;
+      } else if (connection.playlistId) {
+        servicesHtml += `\n   <i>Playlist set</i>`;
       } else {
-        statusMessage += `  Playlist: Not set - run /login to select one\n`;
+        servicesHtml += `\n   <i>No playlist — run /login</i>`;
       }
     }
   }
 
-  statusMessage += `\nTracks saved: ${totalTracks}`;
-  statusMessage += `\nSmart Matching: ${integration.smartMatching ? "On" : "Off"}`;
+  const statusHtml = `<b>TuneHoard Status</b>
+${servicesHtml}
 
-  await ctx.reply(statusMessage);
+<b>Tracks saved:</b> ${totalTracks}
+<b>Smart Matching:</b> ${integration.smartMatching ? "On" : "Off"}`;
+
+  await ctx.replyWithHTML(statusHtml);
 });
 
 // /disconnect - Delete by chatId
