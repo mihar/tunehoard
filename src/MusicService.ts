@@ -133,7 +133,7 @@ export abstract class MusicService {
   public abstract searchTrack(data: ParsedTrackData, accessToken: string): Promise<SearchResult>;
 
   // Destination: Add a track to a playlist by URI
-  public abstract addTrack(uri: string, playlistId: string, accessToken: string): Promise<AddTrackResult>;
+  public abstract addTrack(uri: string, playlistId: string, accessToken: string, options?: { checkDuplicate?: boolean }): Promise<AddTrackResult>;
 }
 
 export class YoutubeService extends MusicService {
@@ -189,7 +189,7 @@ export class YoutubeService extends MusicService {
     return { match: null };
   }
 
-  public async addTrack(uri: string, playlistId: string, accessToken: string): Promise<AddTrackResult> {
+  public async addTrack(uri: string, playlistId: string, accessToken: string, options?: { checkDuplicate?: boolean }): Promise<AddTrackResult> {
     // YouTube playlist add is not implemented yet
     return { success: false, error: "YouTube playlist add not implemented" };
   }
@@ -261,10 +261,14 @@ export class SpotifyService extends MusicService {
     super(options);
   }
 
+  public static matchUrl(str: string): boolean {
+    return str.includes("open.spotify.com") || str.includes("spotify:");
+  }
+
   // -- New unified interface
 
   public matchUrl(url: string): boolean {
-    return url.includes("open.spotify.com") || url.includes("spotify:");
+    return SpotifyService.matchUrl(url);
   }
 
   public async extractTrackData(url: string): Promise<ExtractedData | null> {
@@ -287,6 +291,47 @@ export class SpotifyService extends MusicService {
   }
 
   public async searchTrack(data: ParsedTrackData, accessToken: string): Promise<SearchResult> {
+    // If the rawTitle is already a Spotify URI, use it directly (from Spotify link shares)
+    const spotifyUriMatch = data.rawTitle.match(/^spotify:track:([a-zA-Z0-9]+)$/);
+    if (spotifyUriMatch) {
+      const uri = data.rawTitle;
+      log("Spotify: Using direct URI from shared link", { uri });
+      // Fetch track info from Spotify to return proper artist/song
+      try {
+        const res = await fetch(`https://api.spotify.com/v1/tracks/${spotifyUriMatch[1]}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (res.status === 401) {
+          return { match: null, needsReauth: true };
+        }
+        const track = await res.json();
+        if (track.name && track.artists?.length) {
+          return {
+            match: {
+              trackInfo: {
+                artist: track.artists[0].name,
+                song: track.name,
+              },
+              confidence: 1.0,
+              uri,
+              service: this.name,
+            },
+          };
+        }
+      } catch (error) {
+        log("Spotify: Error fetching track info", { uri, error: String(error) });
+      }
+      // Fallback: return URI with unknown info
+      return {
+        match: {
+          trackInfo: { artist: "Unknown", song: "Unknown" },
+          confidence: 1.0,
+          uri,
+          service: this.name,
+        },
+      };
+    }
+
     // If we have both artist and song, use structured search
     if (data.artist && data.song) {
       const searchResult = await this.search({
@@ -338,8 +383,20 @@ export class SpotifyService extends MusicService {
     return { match: null };
   }
 
-  public async addTrack(uri: string, playlistId: string, accessToken: string): Promise<AddTrackResult> {
+  public async addTrack(uri: string, playlistId: string, accessToken: string, options?: { checkDuplicate?: boolean }): Promise<AddTrackResult> {
     try {
+      // Check for duplicate if requested
+      if (options?.checkDuplicate) {
+        const exists = await this.isTrackInPlaylist(uri, playlistId, accessToken);
+        if (exists.needsReauth) {
+          return { success: false, error: "Access token expired", needsReauth: true };
+        }
+        if (exists.found) {
+          log("Spotify addTrack: track already in playlist", { uri, playlistId });
+          return { success: false, error: "Track already in playlist" };
+        }
+      }
+
       const res = await fetch(
         `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
         {
@@ -365,6 +422,54 @@ export class SpotifyService extends MusicService {
     } catch (error) {
       log("Spotify addTrack error", { error: String(error) });
       return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * Check if a track URI already exists in a playlist.
+   * Paginates through all tracks to handle large playlists.
+   */
+  private async isTrackInPlaylist(
+    uri: string,
+    playlistId: string,
+    accessToken: string
+  ): Promise<{ found: boolean; needsReauth?: boolean }> {
+    try {
+      let offset = 0;
+      const limit = 100;
+
+      while (true) {
+        const res = await fetch(
+          `https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=items(track(uri)),total&limit=${limit}&offset=${offset}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (res.status === 401) {
+          return { found: false, needsReauth: true };
+        }
+
+        if (!res.ok) {
+          log("Spotify isTrackInPlaylist failed", { status: res.status, playlistId });
+          return { found: false };
+        }
+
+        const data = await res.json();
+        const found = data.items?.some((item: any) => item.track?.uri === uri);
+
+        if (found) {
+          return { found: true };
+        }
+
+        offset += limit;
+        if (offset >= data.total) {
+          break;
+        }
+      }
+
+      return { found: false };
+    } catch (error) {
+      log("Spotify isTrackInPlaylist error", { error: String(error) });
+      return { found: false };
     }
   }
 

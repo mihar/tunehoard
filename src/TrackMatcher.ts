@@ -3,6 +3,7 @@ import { smartMatcher } from "./SmartMatcher";
 import { log } from "./logger";
 
 const CONFIDENCE_THRESHOLD = 0.5;
+const SMART_MATCH_CONFIDENCE_THRESHOLD = 0.6;
 
 export type TokenGetter = (serviceName: string) => string | null;
 export type TokenRefresher = (serviceName: string) => Promise<string | null>;
@@ -94,16 +95,28 @@ export class TrackMatcher {
       });
 
       try {
-        const enriched = await smartMatcher.match(
+        const smartResult = await smartMatcher.match(
           parsedData.rawTitle,
           parsedData.rawDescription
         );
 
-        if (enriched) {
-          log("TrackMatcher smart matching enriched data", {
-            artist: enriched.artist,
-            song: enriched.song,
+        if (smartResult && smartResult.confidence < SMART_MATCH_CONFIDENCE_THRESHOLD) {
+          log("TrackMatcher smart matching returned low confidence - skipping", {
+            artist: smartResult.trackInfo.artist,
+            song: smartResult.trackInfo.song,
+            aiConfidence: smartResult.confidence,
+            threshold: SMART_MATCH_CONFIDENCE_THRESHOLD,
           });
+        }
+
+        if (smartResult && smartResult.confidence >= SMART_MATCH_CONFIDENCE_THRESHOLD) {
+          log("TrackMatcher smart matching enriched data", {
+            artist: smartResult.trackInfo.artist,
+            song: smartResult.trackInfo.song,
+            aiConfidence: smartResult.confidence,
+          });
+
+          const enriched = smartResult.trackInfo;
 
           // Re-run search with enriched data
           const enrichedData: ParsedTrackData = {

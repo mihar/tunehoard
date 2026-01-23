@@ -631,6 +631,108 @@
         );
       }
 
+      // History Import Section
+      function HistoryImport() {
+        const [importing, setImporting] = useState(false);
+        const [result, setResult] = useState(null);
+        const [error, setError] = useState(null);
+        const [progress, setProgress] = useState(null);
+        const { refreshChat } = useAuth();
+
+        const handleFileSelect = async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          setError(null);
+          setResult(null);
+          setProgress("Reading file...");
+
+          try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            setProgress("Uploading and processing...");
+            setImporting(true);
+
+            const res = await fetch("/import_history", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json();
+              throw new Error(errData.error || "Import failed");
+            }
+
+            const importResult = await res.json();
+            setResult(importResult);
+            refreshChat();
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setImporting(false);
+            setProgress(null);
+            e.target.value = "";
+          }
+        };
+
+        return (
+          <div className="service-card">
+            <div className="service-header">
+              <span className="service-name">Import History</span>
+            </div>
+            <p style={{ fontSize: "14px", color: "#666", marginBottom: "15px" }}>
+              Import tracks from a Telegram chat export (JSON format).
+            </p>
+
+            {error && <div className="error">{error}</div>}
+
+            {progress && (
+              <div className="loading">{progress}</div>
+            )}
+
+            {result && (
+              <div style={{ marginBottom: "15px", fontSize: "14px" }}>
+                <div style={{ padding: "15px", border: "2px solid var(--dark)", background: "#f9f9f9" }}>
+                  <strong>Import Complete</strong>
+                  <div style={{ marginTop: "10px" }}>
+                    Total links found: {result.total}<br />
+                    Added: {result.added}<br />
+                    Skipped: {result.skipped}<br />
+                    Failed: {result.failed}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleFileSelect}
+              disabled={importing}
+              style={{ display: "none" }}
+              id="history-file-input"
+            />
+            <label htmlFor="history-file-input">
+              <button
+                as="span"
+                disabled={importing}
+                onClick={() => document.getElementById("history-file-input").click()}
+                style={{ pointerEvents: importing ? "none" : "auto" }}
+              >
+                {importing ? "IMPORTING..." : "SELECT JSON FILE"}
+              </button>
+            </label>
+
+            <div className="info-box" style={{ marginTop: "15px" }}>
+              <p><strong>How to export:</strong></p>
+              <p>In Telegram Desktop: Settings → Advanced → Export Telegram data → Select chat → Format: JSON</p>
+            </div>
+          </div>
+        );
+      }
+
       // Settings Section
       function SettingsSection() {
         const { chat, refreshChat } = useAuth();
@@ -779,6 +881,9 @@
 
             <h2>Connected Services</h2>
             <ServiceCards />
+
+            <h2>Tools</h2>
+            <HistoryImport />
 
             <div className="info-box">
               <p>

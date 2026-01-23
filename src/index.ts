@@ -106,10 +106,11 @@ MusicService.register("youtube", {
 });
 
 MusicService.register(DestinationService.SPOTIFY, {
+  matchUrl: SpotifyService.matchUrl,
   create: () => new SpotifyService({ apiKey: "TODO" }),
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
 app.use(cookieParser());
 
 /**
@@ -621,6 +622,263 @@ app.post("/settings", async (req: Request, res: Response) => {
 });
 
 /**
+ * Telegram export message type
+ */
+interface TelegramExportMessage {
+  id: number;
+  type: string;
+  date: string;
+  from?: string;
+  text: string | Array<{ type: string; text: string }>;
+  text_entities?: Array<{ type: string; text: string }>;
+}
+
+interface TelegramExportChat {
+  name: string;
+  type: string;
+  id: number;
+  messages: TelegramExportMessage[];
+}
+
+interface TelegramExport {
+  chats: {
+    list: TelegramExportChat[];
+  };
+}
+
+interface ImportResult {
+  total: number;
+  processed: number;
+  added: number;
+  skipped: number;
+  failed: number;
+  tracks: Array<{
+    url: string;
+    artist?: string;
+    song?: string;
+    status: "added" | "skipped" | "failed";
+    error?: string;
+  }>;
+}
+
+/**
+ * Extract URLs from a Telegram export message
+ */
+function extractUrlsFromExportMessage(message: TelegramExportMessage): string[] {
+  const urls: string[] = [];
+
+  // Check text_entities for links
+  if (message.text_entities) {
+    for (const entity of message.text_entities) {
+      if (entity.type === "link" && entity.text.includes("https://")) {
+        urls.push(entity.text);
+      }
+    }
+  }
+
+  // Also check if text is a string containing URLs
+  if (typeof message.text === "string" && message.text.includes("https://")) {
+    const urlMatches = message.text.match(/https:\/\/[^\s]+/g);
+    if (urlMatches) {
+      for (const url of urlMatches) {
+        if (!urls.includes(url)) {
+          urls.push(url);
+        }
+      }
+    }
+  }
+
+  return urls;
+}
+
+/**
+ * /import_history - Import tracks from Telegram export JSON
+ */
+app.post("/import_history", async (req: Request, res: Response) => {
+  const session = verifySessionCookie(req);
+  if (!session) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const exportData = req.body as TelegramExport;
+
+  if (!exportData?.chats?.list?.length) {
+    res.status(400).json({ error: "Invalid Telegram export format" });
+    return;
+  }
+
+  const integration = chatDatabase.findById(session.chatId);
+  const connection = integration
+    ? getConnection(integration, DestinationService.SPOTIFY)
+    : undefined;
+
+  if (!integration || !connection?.accessToken || !connection?.playlistId) {
+    res.status(400).json({ error: "Chat not configured with playlist" });
+    return;
+  }
+
+  const useSmartMatching = integration.smartMatching ?? false;
+  const destinationService = MusicService.get(DestinationService.SPOTIFY);
+
+  if (!destinationService) {
+    res.status(500).json({ error: "Spotify service not available" });
+    return;
+  }
+
+  const result: ImportResult = {
+    total: 0,
+    processed: 0,
+    added: 0,
+    skipped: 0,
+    failed: 0,
+    tracks: [],
+  };
+
+  // Get all messages with music links from all chats in the export
+  const allUrls: Array<{ url: string; date: string }> = [];
+
+  for (const chat of exportData.chats.list) {
+    for (const message of chat.messages) {
+      if (message.type !== "message") continue;
+
+      const urls = extractUrlsFromExportMessage(message);
+      for (const url of urls) {
+        // Only process YouTube and Spotify links
+        const resolved = MusicService.resolve(url);
+        if (resolved) {
+          allUrls.push({ url, date: message.date });
+        }
+      }
+    }
+  }
+
+  result.total = allUrls.length;
+
+  // Limit to first 50 in dev mode for testing
+  const urlsToProcess = IS_DEV ? allUrls.slice(0, 50) : allUrls;
+
+  log("Starting history import", {
+    chatId: session.chatId,
+    totalUrls: allUrls.length,
+    processing: urlsToProcess.length,
+    limited: IS_DEV,
+  });
+
+  // Process each URL
+  for (const { url } of urlsToProcess) {
+    result.processed++;
+
+    try {
+      const resolvedService = MusicService.resolve(url);
+      if (!resolvedService) {
+        result.skipped++;
+        result.tracks.push({ url, status: "skipped", error: "No service matched" });
+        continue;
+      }
+
+      const sourceService = resolvedService.service;
+      const extractedData = await sourceService.extractTrackData(url);
+
+      if (!extractedData) {
+        result.skipped++;
+        result.tracks.push({ url, status: "skipped", error: "Could not extract track data" });
+        continue;
+      }
+
+      const parsedData = TrackTitleNormalizer.normalize(
+        extractedData.title,
+        extractedData.description
+      );
+
+      const getToken = (): string | null => connection.accessToken ?? null;
+      const refreshToken = async (): Promise<string | null> => {
+        return await refreshServiceToken(session.chatId, DestinationService.SPOTIFY);
+      };
+
+      const match = await trackMatcher.match(parsedData, [destinationService], getToken, {
+        useSmartMatching,
+        refreshToken,
+      });
+
+      if (!match) {
+        result.failed++;
+        result.tracks.push({
+          url,
+          status: "failed",
+          error: `Could not match: ${parsedData.rawTitle}`,
+        });
+        continue;
+      }
+
+      // Add track to playlist
+      let addResult = await destinationService.addTrack(
+        match.uri,
+        connection.playlistId!,
+        connection.accessToken!
+      );
+
+      // Retry with refreshed token if needed
+      if (addResult.needsReauth) {
+        const newToken = await refreshServiceToken(session.chatId, DestinationService.SPOTIFY);
+        if (newToken) {
+          connection.accessToken = newToken;
+          addResult = await destinationService.addTrack(
+            match.uri,
+            connection.playlistId!,
+            newToken
+          );
+        }
+      }
+
+      if (addResult.success) {
+        result.added++;
+        connection.tracksAdded = (connection.tracksAdded ?? 0) + 1;
+        result.tracks.push({
+          url,
+          artist: match.trackInfo.artist,
+          song: match.trackInfo.song,
+          status: "added",
+        });
+      } else {
+        result.failed++;
+        result.tracks.push({
+          url,
+          artist: match.trackInfo.artist,
+          song: match.trackInfo.song,
+          status: "failed",
+          error: addResult.error,
+        });
+      }
+    } catch (err) {
+      result.failed++;
+      result.tracks.push({
+        url,
+        status: "failed",
+        error: String(err),
+      });
+    }
+
+    // Small delay to avoid rate limiting
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  // Save updated track count
+  setConnection(integration, connection);
+  chatDatabase.update(session.chatId, integration);
+
+  log("History import complete", {
+    chatId: session.chatId,
+    total: result.total,
+    added: result.added,
+    skipped: result.skipped,
+    failed: result.failed,
+  });
+
+  res.json(result);
+});
+
+/**
  * Start the Express server
  */
 async function startHttpServer(): Promise<void> {
@@ -945,7 +1203,8 @@ bot.on(message("text"), async (ctx) => {
     let result = await destinationService.addTrack(
       match.uri,
       connection.playlistId!,
-      connection.accessToken!
+      connection.accessToken!,
+      { checkDuplicate: true }
     );
 
     // If token expired, try to refresh and retry once
@@ -957,7 +1216,8 @@ bot.on(message("text"), async (ctx) => {
         result = await destinationService.addTrack(
           match.uri,
           connection.playlistId!,
-          newToken
+          newToken,
+          { checkDuplicate: true }
         );
       }
     }

@@ -3,11 +3,22 @@ import { config } from "./config";
 import { log } from "./logger";
 import type { TrackInfo } from "./MusicService";
 
+export type SmartMatchResult = {
+  trackInfo: TrackInfo;
+  confidence: number;
+};
+
 const SYSTEM_PROMPT = `You are a music track identifier. Given a YouTube video title and optionally a description, extract the artist name and song title.
 
 Rules:
-- Return ONLY valid JSON in this exact format: {"artist": "Artist Name", "song": "Song Title"}
-- If you cannot determine both artist and song with confidence, return: {"artist": null, "song": null}
+- Return ONLY valid JSON in this exact format: {"artist": "Artist Name", "song": "Song Title", "confidence": 0.9}
+- The confidence field must be a number between 0 and 1 indicating how certain you are:
+  - 1.0: Absolutely certain (e.g., official artist channel, explicit "Artist - Song" format)
+  - 0.8-0.9: Very confident (clear artist/song in title, verified via search)
+  - 0.6-0.7: Moderately confident (some ambiguity but likely correct)
+  - 0.4-0.5: Low confidence (guessing based on partial info)
+  - Below 0.4: Very uncertain (return null values instead)
+- If you cannot determine both artist and song with reasonable confidence, return: {"artist": null, "song": null, "confidence": 0}
 - Strip out things like "(Official Video)", "(Lyric Video)", "[HD]", "ft.", "feat." normalization, etc.
 - For "feat." or "ft." artists, include them in the artist field like "Artist feat. Other Artist"
 - Use Google Search if you need to verify or find the correct artist/song information
@@ -31,7 +42,7 @@ export class SmartMatcher {
     return this.model !== null;
   }
 
-  public async match(title: string, description?: string): Promise<TrackInfo | null> {
+  public async match(title: string, description?: string): Promise<SmartMatchResult | null> {
     if (!this.model) {
       log("SmartMatcher not available - no API key configured");
       return null;
@@ -47,7 +58,7 @@ export class SmartMatcher {
       const result = await this.model.generateContent({
         contents: [
           { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
-          { role: "model", parts: [{ text: "I understand. Send me the YouTube video information and I will extract the artist and song in JSON format, using Google Search if needed." }] },
+          { role: "model", parts: [{ text: "I understand. Send me the YouTube video information and I will extract the artist and song in JSON format with my confidence level, using Google Search if needed." }] },
           { role: "user", parts: [{ text: prompt }] },
         ],
       });
@@ -71,13 +82,18 @@ export class SmartMatcher {
         return null;
       }
 
+      // Extract confidence, default to 0.5 if not provided (backward compat)
+      const confidence = typeof parsed.confidence === 'number'
+        ? Math.max(0, Math.min(1, parsed.confidence))
+        : 0.5;
+
       const trackInfo: TrackInfo = {
         artist: parsed.artist,
         song: parsed.song,
       };
 
-      log("SmartMatcher success", { trackInfo });
-      return trackInfo;
+      log("SmartMatcher success", { trackInfo, confidence });
+      return { trackInfo, confidence };
     } catch (error) {
       log("SmartMatcher error", { error: String(error) });
       return null;
